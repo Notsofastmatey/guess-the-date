@@ -327,6 +327,7 @@ const QUESTIONS = [
 ];
 
 const ROUND_MS = 20000, GRACE_MS = 1200, NEXT_AFTER_MS = 7000;
+const VERSION = '22 Oct 2026 · 20:35';
 const MIN_YEAR = 1000, MAX_YEAR = 2030, START_YEAR = 1900;
 const PREFIX = 'gtd-sp-';
 const LETTERS = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
@@ -567,6 +568,7 @@ function render(){
           <div class="code">${H.status ? '····' : H.code}</div>
           <p class="msg">${esc(H.status)}${local ? ' This page needs to be hosted online for phones to join.' : ''}</p>
           <div class="qr" id="qr"></div>
+          <p class="sub" style="font-size:2vh;margin-top:2vh">Version ${VERSION}</p>
         </div>
         <div>
           <p class="sub">Players (${H.players.length}/8)</p>
@@ -712,7 +714,7 @@ function renderPhone(){
       <div><label for="code">Room code</label><input id="code" maxlength="4" autocapitalize="characters" autocomplete="off" value="${esc(P.code)}" style="text-transform:uppercase;letter-spacing:.3em;text-align:center;font-size:1.8rem"></div>
       <div><label for="name">Your name</label><input id="name" maxlength="14" autocomplete="nickname" value="${esc(P.name)}"></div>
       <p class="msg">${esc(P.msg)}</p>
-      <button class="btn primary big" onclick="joinFromForm()">Join game</button></div>`;
+      <button class="btn primary big" onclick="joinFromForm()">Join game</button><p class="sub" style="font-size:.8rem">Version ${VERSION}</p></div>`;
   }
   else if(P.phase === 'connecting') h = `<div class="screen center"><p class="sub">Joining room ${esc(P.code)}…</p></div>`;
   else if(P.phase === 'lost') h = `<div class="screen center"><p class="sub">Lost connection to the TV.</p><button class="btn primary big" onclick="connect(P.code,P.name)">Rejoin</button></div>`;
@@ -723,8 +725,8 @@ function renderPhone(){
     if(P.timeUp) h = `<div class="screen center">${who}<h1 class="title">Time’s up!</h1><p class="sub">Move the slider sooner next time. Eyes on the TV!</p></div>`;
     else if(P.locked != null) h = `<div class="screen center">${who}<p class="sub">Question ${q.n} of ${q.total}</p><p>${esc(q.text)}</p><div class="yr">${P.locked}</div><p class="sub">Locked in. Eyes on the TV!</p></div>`;
     else h = `<div class="screen">${who}${bar}<div class="card"><span class="tag">${esc(q.cat)}</span><p style="margin:10px 0 0;font-size:1.3rem">${esc(q.text)}</p></div>
-      <input class="yr" id="yr" type="number" inputmode="numeric" pattern="[0-9]*" min="${MIN_YEAR}" max="${MAX_YEAR}" value="${P.year}" oninput="typedYear(this.value)" onkeydown="if(event.key==='Enter'){this.blur();lockIn();}" aria-label="Year">
-      <p class="sub hint">Tap the year to type it, or use the slider</p>
+      <input class="yr" id="yr" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="4" autocomplete="off" enterkeyhint="go" value="${P.year}" onfocus="this.select()" oninput="this.value=this.value.replace(/[^0-9]/g,'');typedYear(this.value)" onkeydown="if(event.key==='Enter'){this.blur();lockIn();}" aria-label="Year">
+      <button class="btn" onclick="const e=document.getElementById('yr');e.focus();e.select();">⌨ Type a year</button>
       <input type="range" id="sl" min="${MIN_YEAR}" max="${MAX_YEAR}" step="1" value="${P.year}" oninput="setYear(+this.value)">
       <div class="steps"><button class="btn" onclick="setYear(P.year-10)">−10</button><button class="btn" onclick="setYear(P.year-1)">−1</button><button class="btn" onclick="setYear(P.year+1)">+1</button><button class="btn" onclick="setYear(P.year+10)">+10</button></div>
       <button class="btn primary big" onclick="lockIn()">Lock in</button></div>`;
