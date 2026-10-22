@@ -50,6 +50,10 @@ label{color:var(--muted);font-size:.95rem;display:block;margin-bottom:6px;text-a
 
 /* Phone */
 .yr{font-family:var(--display);font-size:4.6rem;text-align:center;color:var(--seal);font-variant-numeric:tabular-nums;margin:0;line-height:1.1}
+input.yr{width:100%;background:rgba(255,250,238,.9);border:2px dashed var(--line);border-radius:6px;padding:4px 0;-moz-appearance:textfield}
+input.yr::-webkit-outer-spin-button,input.yr::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+input.yr:focus{border-style:solid;border-color:var(--seal)}
+.hint{text-align:center;margin:-8px 0 0;font-size:.9rem}
 input[type=range]{padding:0;height:44px;background:transparent;border:none;accent-color:var(--seal)}
 .steps{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
 .steps .btn{padding:14px 0;font-size:1.25rem}
@@ -322,7 +326,7 @@ const QUESTIONS = [
   {c:"Birth",q:"Elvis Presley is born",a:1935,f:"He had a twin brother who died at birth."}
 ];
 
-const ROUND_MS = 10000, GRACE_MS = 1200;
+const ROUND_MS = 20000, GRACE_MS = 1200, NEXT_AFTER_MS = 7000;
 const MIN_YEAR = 1000, MAX_YEAR = 2030, START_YEAR = 1900;
 const PREFIX = 'gtd-sp-';
 const LETTERS = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
@@ -523,6 +527,15 @@ function reveal(){
     p.score += pts + bonus;
   });
   H.phase = 'reveal'; H.token++;
+  const tok = H.token, landsAt = (guessers.length * 0.3 + 0.6) * 1000;
+  H.nextAt = Date.now() + landsAt + NEXT_AFTER_MS;
+  clearInterval(H.tick);
+  H.tick = setInterval(() => {
+    if(H.token !== tok || H.phase !== 'reveal'){ clearInterval(H.tick); return; }
+    const left = H.nextAt - Date.now(), el = $('#nextin');
+    if(el) el.textContent = Math.max(1, Math.ceil(left/1000));
+    if(left <= 0){ clearInterval(H.tick); nextQ(); }
+  }, 200);
   broadcast(); render();
 }
 function backToLobby(){ H.phase = 'lobby'; H.players.forEach(p => { p.score = 0; p.last = null; p.guess = null; }); broadcast(); render(); }
@@ -606,7 +619,7 @@ function render(){
           <div class="tl"><div class="axis"><b style="left:0"></b><b style="right:0"></b><span style="left:0">${Math.round(lo)}</span><span style="left:100%">${Math.round(hi)}</span></div>
             ${pins}<div class="answer" style="left:${pos(q.a)}%;animation-delay:${t}s"><div class="stem"></div><div class="lab">${q.a}</div></div></div>
           <p class="fact late" style="animation-delay:${t+0.6}s">${esc(q.f)}</p>
-          <button class="btn primary late" style="animation-delay:${t+0.9}s" id="b-next" data-auto onclick="nextQ()">${last ? 'Final scores' : 'Next question'}</button>
+          <button class="btn primary late" style="animation-delay:${t+0.9}s" id="b-next" data-auto onclick="nextQ()">${last ? 'Final scores' : 'Next question'} in <span id="nextin">${Math.ceil(NEXT_AFTER_MS/1000)}</span></button>
         </div>
         ${scoreSide('r', t + 0.4)}
       </div>
@@ -679,10 +692,17 @@ function tickPhone(){
 function setYear(y){
   P.touched = true;
   P.year = Math.max(MIN_YEAR, Math.min(MAX_YEAR, Math.round(y)));
-  const el = $('#yr'); if(el) el.textContent = P.year;
+  const el = $('#yr'); if(el && document.activeElement !== el) el.value = P.year;
   const sl = $('#sl'); if(sl && +sl.value !== P.year) sl.value = P.year;
 }
-function lockIn(){ if(P.locked != null || P.timeUp) return; P.locked = P.year; P.conn && P.conn.open && P.conn.send({t:'guess', year:P.year}); renderPhone(); }
+function typedYear(v){
+  const y = parseInt(v, 10);
+  P.touched = true;
+  if(String(v).length >= 4 && y >= MIN_YEAR && y <= MAX_YEAR){ P.year = y; const sl = $('#sl'); if(sl) sl.value = y; }
+}
+function lockIn(){ if(P.locked != null || P.timeUp) return;
+  const el = $('#yr');
+  if(el){ const y = parseInt(el.value, 10); if(y && String(el.value).length >= 4) P.year = Math.max(MIN_YEAR, Math.min(MAX_YEAR, y)); } P.locked = P.year; P.conn && P.conn.open && P.conn.send({t:'guess', year:P.year}); renderPhone(); }
 
 function renderPhone(){
   const who = P.color ? `<div class="sub"><span class="dot" style="--c:${P.color}"></span>${esc(P.name)}</div>` : '';
@@ -703,7 +723,8 @@ function renderPhone(){
     if(P.timeUp) h = `<div class="screen center">${who}<h1 class="title">Time’s up!</h1><p class="sub">Move the slider sooner next time. Eyes on the TV!</p></div>`;
     else if(P.locked != null) h = `<div class="screen center">${who}<p class="sub">Question ${q.n} of ${q.total}</p><p>${esc(q.text)}</p><div class="yr">${P.locked}</div><p class="sub">Locked in. Eyes on the TV!</p></div>`;
     else h = `<div class="screen">${who}${bar}<div class="card"><span class="tag">${esc(q.cat)}</span><p style="margin:10px 0 0;font-size:1.3rem">${esc(q.text)}</p></div>
-      <div class="yr" id="yr">${P.year}</div>
+      <input class="yr" id="yr" type="number" inputmode="numeric" pattern="[0-9]*" min="${MIN_YEAR}" max="${MAX_YEAR}" value="${P.year}" oninput="typedYear(this.value)" onkeydown="if(event.key==='Enter'){this.blur();lockIn();}" aria-label="Year">
+      <p class="sub hint">Tap the year to type it, or use the slider</p>
       <input type="range" id="sl" min="${MIN_YEAR}" max="${MAX_YEAR}" step="1" value="${P.year}" oninput="setYear(+this.value)">
       <div class="steps"><button class="btn" onclick="setYear(P.year-10)">−10</button><button class="btn" onclick="setYear(P.year-1)">−1</button><button class="btn" onclick="setYear(P.year+1)">+1</button><button class="btn" onclick="setYear(P.year+10)">+10</button></div>
       <button class="btn primary big" onclick="lockIn()">Lock in</button></div>`;
